@@ -1,0 +1,2 @@
+# Effectiveness-of-RHC
+Right Heart Catheterization (RHC) is one of the most useful diagnostic approaches in cardiology with great accuracy over decades. However, in this article, based on data from Study to Understand Prognoses and Preferences for Outcomes and Risks of Treatments (SUPPORT), using propensity score matching and logistic regression, we find that patient using RHC in Intensive Unit Care has an increase of mortality within 180 days than those not. Improvement is needed for the safety of RHC.
