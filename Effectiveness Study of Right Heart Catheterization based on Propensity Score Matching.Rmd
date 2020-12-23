@@ -1,0 +1,325 @@
+---
+title: Study of the Safety of Right Heart Catheterization Based on Propensity Score Matching
+author: Ran Li
+date: "07/12/2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+fontsize: 11pt
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{subfig}
+- \usepackage{floatrow}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE, message=FALSE}
+library(tidyverse)
+library(tableone)
+library(broom)
+library(arm)
+library(kableExtra)
+library(data.table)
+library(plyr)
+library(knitr)
+```
+
+## Abstract
+Right Heart Catheterization (RHC) is one of the most useful diagnostic approaches in cardiology with great accuracy over decades. However, in this article, based on data from Study to Understand Prognoses and Preferences for Outcomes and Risks of Treatments (SUPPORT), using propensity score matching and logistic regression, we find that patient using RHC in Intensive Unit Care has an increase of mortality within 180 days than those not. Improvement is needed for the safety of RHC.\newline
+
+*Keywords:* Propensity Score Matching, Logistic Regression Model, Right Heart Catheterization Oberservational Study, Non-randomized Study 
+
+## Introduction
+Based on data from Statistics Canada, cardiovascular diseases have been the rank 2 leading cause of death, with the ranking 1 being cancer. So it is always of significant importance to improve the diagnosis and treatment of the diseases in the development of medical science. In this article, the effectiveness of Right Heart Catheterization (RHC) will be studied via propensity score matching.\newline
+
+RHC, also called Swan-Ganz catheter, is a test used for estimating the intracardiac pressures and the cardiac output (the amount of blood that flows from the heart each minute).During RHC, a catheter inserted from vein will move into the pulmonary artery and results of testing will be given through continuous monitoring. It plays an significant role in decision-making of pulmonary hypertension and heart failure patients.$^{[2]}$ \newline
+
+In this article, we will study the effectiveness based on propensity score matching (PSM) using observational data. In medical science, observational study is widely performed in causal study instead of randomized controlled trials (RCT) since it is often the case that ideal RCTs are sometimes time consuming, costing or even unethical. The idea of PSM, in 1983, proposed by Rosenbaum and Rubin$^{[3]}$ allows for the consideration of probability of a certain sample being selected in the treatment group (determined through Logistic regression), which helps to deal with the nonrandomness and imbalance in the grouping of original observational data. This practical method has become more and more popular also in many other fields including economics, education and social science.$^{[4]}$ More details about PSM will be included in the methodology section below.\newline
+
+Clinical data used for analyzing here is taken from Connors(1996).$^{[1],[5]}$ Sampled from five US teaching hospitals between 1989 and 1994, this dataset contains outcome variable as patient's survival time, dependent variable as whether or not taking RHC and 63 confounding variables. Details about data collection and sampling will be discussed in data section.\newline
+
+From our study, it is impressing to find that even though RHC has significant contribution to diagnosis and treatment in cardiovascular disease (especially heart failure), the results presented based on Propensity Score Matching along with logistic regression suggests higher death rate for those taking RHC than those not. (See result section) Further interpretation and weakness analysis will be presented in Discussion.\newline
+
+
+## Data
+Data we used in analysis was collected in the Study to Understand Prognoses and Preferences for Outcomes and Risks of Treatments(SUPPORT) from 5 medical centers across the U.S. from 1989 to 1994 to examine the association between the use of right heart catheterization (RHC) during the first 24 hours of care in the ICU and subsequent survival time. The study includes a system of creteria for a patient to be selected. The sampling frame is all adult patients receiving care in the ICU with 1 or more of 9 pre-specified diseases.$^{[5]}$ This initial information is stored in the variable "cat1" in the dataset, representing primary disease category. Besides, the study was conducted in two phases, where Phase I was designed to describe the process of desicion making and Phase II was an intervention to improve decision making. Data from two phases are combined to create the whole dataset, with sample size 5735 where 2184 are patients treated with RHC and 3551 without RHC, forming the initial treatment and control group.\newline
+
+During the study, both physiological information and personal information are collected. Physiological data consists of categories of admission diagnosis as well as comorbidities illness which are accessed through daily monitoring. However, personal information were attained from interviewing the patient and/or their designated surrogate desicion makers. Age, sex, race, education, income and insurance status were collected this way. Surrogate was interviewed if the patient was unconscious, intubated or cognitively impaired. If information cannot be accessed in neither ways, there is some specially designed regression model for estimating corresponding information. \newline
+
+The treatment variable in the dataset is `swang1`, consisting of two levels:"RHC" and "No RHC", we change it into a binary vairable `treated`, where 1 for RHC treated and 0 for no RHC treated for further analysis. Outcome variable in the dataset is survival time, the study admission date stored in varaible "sadmdte", death date in "dthdte" and date of Last Contact in "lstctdte" provide information for survival analysis. In this article, we focus on the outcome variable "death", which is the status for a patient within 180 days, 1 for the confirmation of death of the patient and 0 otherwise. This will be used as the binary response variable in our final logistic regression model.\newline
+
+Other variables (including physiological data and personal data as stated before) are treated as confounding variables. We select 50 from these 63 confouding variables because data are not available in some columns. For example, "second disease category" is dropped becuase almost 80% of patients did not have information recorded. For the chosen 50 variables, we computed the mean and standard deviation for each one, stratified by control and treatment group. **Detailed information can be found in the left side of Table 1 in result section and Table 4 in Appendix section.** Group comparison is also available in this table, performed using `CreateOnetable`. Note that we are going to use these variables to perform analysis throughout the article.\newline
+
+
+## Model
+#### Propensity Score Matching 
+It is well known that Randomized Control Trial (RCT) is the ideal experiment to estimate a causal effect. However, in most senerios, people cannot achieve the randomness requirement for RCT, either because the experiment is unethical or the randomness is logisticaly impossible.$^{[3]}$ In real world, observational study are done with a nonexperimental comparison group, and the direct comparison can be biased due to the problem of self-selection. Propensity score matching (PSM), proposed in 1983 is a method used to correct for sample selection bias due to observable differences between the treatment and comparison groups $^{[8]}$.\newline
+
+In our dataset, it can be seen from Table 1 that we compare the control group and treatment group. Most of variables have p-value significant enough to reject the hypothesis that the treatment group and control group are the same. Also, we can see that the Standrd Mean Difference (SMD) is pretty high for some variable, for example income (14.2%), indicating that patients in the treatment group and control group without matching has significant difference in income. This imbalance will lead to causal inference bias as stated above, motivating us to use PSM to compensate for the nonrandomness.\newline
+
+Propensity Score (PS) is conditional probability of the individual being selected in the treatment group given the values of confounding variables, written as $P(Y_i=1|X_1, X_2,..,X_n)$, where $X_1, X_2,..,X_n$ are confounding variables and $Y_i$ is the random variable of whether or not being selected in the treatment group$^{[3]}$. Here we estimate the propensity score by Logistic Regression:
+
+\begin{equation}
+log(\frac{p}{1-p})=\alpha+\alpha_1X_1+\alpha_2X_2+...+\alpha_{50}X_{50}
+\end{equation}
+
+where $p$ is the conditional probabilty of the performing RHC, $X_i$ are 50 confounding variables we chose. In this way, propensity score for each individual can be calculated.\newline
+
+The next step for PSM is matching. Matching is the process where for each individual who uses RHC, we match him with an individual who did not use RHC but has similar propensity score. In this way, we may obtain pairs of samples to form new control and treatment groups that help to reduce the confouding bias. There are several methods for matching, for example nearest neighbourhood matching, caliper matching, radius matching and Mahalanobis matching. All analysis in this article are based on nearest neighbourhood matching using R package `arm`, which involves running through the list of treated units and selecting the closest eligible control unit to be paired with each treated unit $^{[12]}$. After matching, we can obtain new control and treatment groups with similar background so that additional analysis can be performed based on this. Here we are going to use logistic regression model to study the death rate of patients with or without RHC. \newline
+
+#### Logistic Regression Model
+In this article, logistic regression model is used to reveal the relationship between usage of RHC and death rate within 180 days. The variable "using or not using RHC", as a categorical varaible along with three additional variables (age, Duke activity status index, heart rate) are selected to build the multivariate logistic regression model against the binary outcome (death or not within 180 days), written as the follwing equation (2):
+\begin{equation}
+log(\frac{p}{1-p})=\beta_0+\beta_1X_1+\beta_2X_2+\beta_{3}X_{3}+\beta_{4}X_4
+\end{equation}
+where $p$ is the death rate within 180 days, $X_i$s are 4 predictor variables as stated above.\newline
+
+We choose age because older people are usually more sensitive to medical treatment, especially when RHC is a performed inside a patient's heart. Duke Activity Status Index (DASI) is a self-administered questionnaire that measures a patient's functional capacity. It can be used to get a rough estimate of a patient's peak oxygen uptake.$^{[15]}$.This is included as our predictor variable because RHC is used to measure cardiac output (known as the blood pumped in heart unit time), which is correlated to oxygen uptake. Similarly, we select heart rate as our fourth predictor variable.\newline
+
+See Figure 4, 5 for model diagnostics results. We plot the deviance residuals in Figure 4, which is almost the same as the standarized residuals in this case. This horizontal band located in between (-2, 2) supports the model assumption of logistic regression (conditional probabilities being a logistic function of the independent variables as well as constant variance). Also, from Figure 5, we can see that Cook's distance is within 0.002 and almost all standarized residuals are concentrated in (-2, 2), suggesting no influential point exits that may change regression result extremely. We will include more information about the significance of model in the next section.\newline
+
+```{r, echo = FALSE, results = "hide", message = FALSE}
+## Import Dataset
+setwd('/Users/ranli/Desktop/STA304 Final Project')
+rhc = read.csv("rhc.csv")
+vars <- c("age","sex","race","edu","income","ninsclas","cat1","das2d3pc","dnr1",
+          "ca","surv2md1","aps1","scoma1","wtkilo1","temp1","meanbp1","resp1",
+          "hrt1","pafi1","paco21","ph1","wblc1","hema1","sod1","pot1","crea1",
+          "bili1","alb1","resp","card","neuro","gastr","renal","meta","hema",
+          "seps","trauma","ortho","cardiohx","chfhx","dementhx","psychhx",
+          "chrpulhx","renalhx","liverhx","gibledhx","malighx","immunhx",
+          "transhx","amihx")
+
+## List the descriptive statistics of original data, perform group comparison
+tabUnmatched <- CreateTableOne(vars = vars, strata = "swang1", data = rhc, test = TRUE, smd = TRUE)
+print(tabUnmatched, smd = TRUE)
+
+tabUnmatched <- print(tabUnmatched,
+                 smd = TRUE)
+```
+
+## Results
+### Balance of the matched data
+From the original 5735 samples, there are 4368 samples being successfully matched, all the samples originally in treatment group is matched with an individual in the control group with nearest propensity score. The new control and treatment group selected from PSM is more balanced. See the right part of Table 1 for the detailed group comparison result after matching. This is done through R package `CreateOneTable`, where group comparison is done using t-test.$^{[13]}$ Note that there are 50 confounding variables in total, only a few variables from these are listed in this table. Check Table 4 in the Appendix Section for all comparisons for the remaining variables. Compared with the left part, we can find that there are 38 confounding variables with group comparison p-value greater than 0.01, but more than half of them having p-value less than 0.01 before matching. Also, Standard Mean Difference (SMD) is also decreased after PSM. See Figure 3 for the comparison of SMD for 50 confounding variables before and after matching. Lastly, Figure 2 and 3 show density curves of propensity score for control and treatment group. There is an obvious right shift for the control group which improves the balance. All these suggest the effectiveness and necessity of propensity score matching on this dataset. \newline
+
+```{r, echo = FALSE, results = "hide"}
+## Build logistic regression model to estimate propensity score
+propensity_score <- glm(formula = swang1 ~ age + sex + race + edu + income + ninsclas +
+                 cat1 + das2d3pc + dnr1 + ca + surv2md1 + aps1 + scoma1 +
+                 wtkilo1 + temp1 + meanbp1 + resp1 + hrt1 + pafi1 +
+                 paco21 + ph1 + wblc1 + hema1 + sod1 + pot1 + crea1 +
+                 bili1 + alb1 + resp + card + neuro + gastr + renal +
+                 meta + hema + seps + trauma + ortho + cardiohx + chfhx +
+                 dementhx + psychhx + chrpulhx + renalhx + liverhx + gibledhx +
+                 malighx + immunhx + transhx + amihx,
+                 family  = binomial(link = "logit"),
+                 data    = rhc)
+
+## Predicted probability of being assigned to RHC
+rhc$treated = ifelse(rhc$swang1 =="RHC", 1, 0)
+rhc$treated = as.integer(rhc$treated)
+rhc <- 
+  augment(propensity_score, 
+          data = rhc,
+          type.predict = "response") %>% 
+  dplyr::select(-.resid, -.std.resid, -.hat, -.sigma, -.cooksd) 
+rhc <- 
+ rhc %>% 
+  arrange(.fitted, swang1)
+matches <- arm::matching(z = rhc$treated, 
+                         score = rhc$.fitted)
+
+## Obtain mathced data
+rhc <- cbind(rhc, matches)
+rhc_matched <- 
+  rhc %>% 
+  filter(match.ind != 0) %>% 
+  dplyr::select(-match.ind, -pairs, -treated)
+
+## List descriptive statistics and perform group comparison for matched data
+tablematched <- CreateTableOne(vars = vars, strata = "swang1", data = rhc_matched, test = TRUE)
+tablematched = print(tablematched, smd = TRUE)
+```
+
+```{r, echo = FALSE, results = "hide", warning=FALSE}
+## Generate Table 1
+
+tabUnmatched = as.data.frame(tabUnmatched) 
+tablematched = as.data.frame(tablematched)
+
+drops <- c("test")
+tabUnmatched = tabUnmatched[ , !(names(tabUnmatched) %in% drops)]
+tablematched = tablematched[, !(names(tablematched) %in% drops)]
+
+long_dt = cbind(tabUnmatched, tablematched)
+```
+
+```{r, echo = FALSE,warning=FALSE}
+## Print out part of Table 1
+kbl(long_dt[1:25, ], longtable = T, booktabs = T, caption = "Descriptive Statistics and Group Comparison (Partial)") %>% add_header_above(c(" ", "Before Matching" = 4, "After Matching" = 4)) %>% kable_styling(latex_options = c("scale_down", "repeat_header"), font_size = 8)
+```
+
+```{r, echo = FALSE,fig.show = "hold", tablematched, out.width = "50%", results ="hide", message=FALSE}
+
+## Plot Density
+# Add mean lines
+mu1 <- ddply(rhc, "swang1", summarise, grp.mean=mean(.fitted))
+mu2 <- ddply(rhc_matched, "swang1", summarise, grp.mean=mean(.fitted))
+p1<-ggplot(rhc, aes(x=.fitted, color=swang1)) +
+  geom_density()+
+  geom_vline(data=mu1, aes(xintercept=grp.mean, color=swang1),
+             linetype="dashed")+ggtitle("Figure 1. Density of Propensity Score Before Matching")+theme(text = element_text(size = 10))+xlab("Propensity Score")+ylab("Density")+labs(color="Treatment")
+
+p2<-ggplot(rhc_matched, aes(x=.fitted, color=swang1)) +
+  geom_density()+
+  geom_vline(data=mu2, aes(xintercept=grp.mean, color=swang1),
+             linetype="dashed")+ggtitle("Figure 2. Density of Propensity Score After Matching") + theme(text = element_text(size = 10))+xlab("Propensity Score")+ylab("Density")+scale_fill_discrete(name = "New Legend Title")+labs(color="Treatment")
+p1
+p2
+```
+
+```{r, echo = FALSE, results = "hide"}
+## Plot SMD
+tablematched <- CreateTableOne(vars = vars, strata = "swang1", data = rhc_matched, test = TRUE)
+
+tabUnmatched <- CreateTableOne(vars = vars, strata = "swang1", data = rhc, test = TRUE, smd = TRUE)
+
+
+dataPlot <- data.table(variable  = rownames(ExtractSmd(tabUnmatched)),
+                       Unmatched = ExtractSmd(tabUnmatched),
+                       Matched   = ExtractSmd(tablematched))
+colnames(dataPlot) <- c("variable","Unmatched","Matched")
+## Create long-format data for ggplot2
+dataPlotMelt <- melt(data          = dataPlot,
+                     id.vars       = c("variable"),
+                     variable.name = "Method",
+                     value.name    = "SMD")
+
+## Order variable names by magnitude of SMD
+varNames <- as.character(dataPlot$variable)[order(dataPlot$Unmatched)]
+
+## Order factor levels in the same order
+dataPlotMelt$variable <- factor(dataPlotMelt$variable,
+                                levels = varNames)
+
+## Plot using ggplot2
+ggplot(data = dataPlotMelt, mapping = aes(x = variable, y = SMD,                                          group = Method, color = Method)) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 0.1, color = "black", size = 0.1) +
+  theme_bw() + theme(legend.key = element_blank(), text = element_text(size = 7))+coord_flip()+ggtitle("Figure 3. Standard Mean Difference Between Control and Treatment Group of Unmatched and Matched Dataset")+ xlab("Variables") + ylab("Standard Mean Error")
+```
+
+### Logistic Regression Results
+Now that we have obtained our newly assigned control and treatment group, logistic regression model is applied to study the death rate within 180 days in ICU under the effect of RHC. Table 2 shows the regression result based on equation (2) using `glm` in `R`. It is seen that all four covariates we chose are statistically significant with small p-vlaue. More interpretations will be on discussion section.\newline 
+Table 3 contains values for model selection, including deviance, log likelihood, AIC and BIC.\newline
+Figure 4 and 5 are provided for model diagnostics. Figure 4 is shown for residual plot, with values within -2 to 2. Figure 5 is for Cook's distance with indexed sample. Details of interpretation have been covered in the previous model section.\newline
+
+```{r, echo = FALSE, fig.show = "hold", logistic, out.width = "50%", message=FALSE}
+## Build Logistic Regression Model
+rhc_matched$treated <- if_else(rhc_matched$swang1 == "RHC", 1, 0)
+
+logistic = glm(death ~ treated + age + das2d3pc + hrt1, data = rhc_matched, family = "binomial")
+
+## Obtain estimate of coefficients
+logistic_result = coef(summary(logistic))
+model_result = glance(logistic)[,1:5]
+
+## Add sample index
+model.data <- augment(logistic) %>% 
+  mutate(index = 1:nrow(augment(logistic)))
+
+## Plot Residual (Figure 4)
+ggplot(model.data, aes(index, .resid)) + 
+  geom_point(aes(color = factor(treated)), alpha = .5) +
+  theme_bw()+ggtitle("Figure 4. Residual Plot")+ylab("Residual")+xlab("Index")+labs(color="Treatment")
+
+## Plot Cook's Distance, Figure 5
+graphics::plot(logistic, which = 4, id.n = 3, )
+
+## Find VIF 
+library(car)
+VIF = as.vector(car::vif(logistic))
+VIF = append(NA, VIF)
+logistic_result = cbind(logistic_result, VIF)
+variables = c("Intercept","RHC (Reference to No RHC)", "Age", "DASI ( Duke Activity Status Index)", "Heart Rate")
+
+## Print Table2
+rownames(logistic_result) = variables
+kable(logistic_result, digits = 3, booktabs = TRUE, caption = "Coefficient of Logistic Regression Model")%>% kable_styling(latex_options = "hold")
+
+## Print Table 3
+kable(model_result, digits = 3, booktabs = TRUE, caption = "Result of Logistic Regression Model")%>% kable_styling(latex_options = "hold")
+```
+
+## Discussion
+### Summary
+Cardiovascular diseases have been the leading cause of death for hundreds of years, so the study of the effectiveness of its treatment becomes more and more importnat. In this article, we study the effectiveness of Right Heart Catherterization (RHC) based on propensity score matching and logistic regression. It is shown in Table 1 that our original medical data shows nonrandomness between control and treatment group, which causes bias if we do direct analysis. By calculating propensity score using Logistic Regression with respect to the 50 confounding vairables, we are able to match individual in control group with samples in treatment group having nearest propensity score, which helps us decrease the difference between two groups effectively as shown before. Lastly, we apply Logistic Regression Model to the matched dataset to estimate the death rate of 180 days under the affect of RHC.
+
+### Conclusions
+Table 2 contatins the estimation result for logistic regression. We select 4 variables (RHC or not, age, Duke activity status Index and heart rate) that are found correlated with the death rate within 180 days. From the table we can see that all the covariates are significant with p-value less than 0.01 in this model. Specifically for RHC, we find the estimate is 0.256, with 95% confidence interval (0.127, 0.385). It suggests that RHC has increased the log odds of death rate by 0.256.Therefore, we conclude here that using RHC will increase the death rate of patient in the intensive care unit during treatment. Other variables are also significant, as shown in the table that older, and patients with higher heart rate and lower Duke activity status index (measure of a patient's functional capacity) tend to have higher log odds of death rate within 180 days (respectively increase by 0.023, -0.074 and 0.002), which agrees with results in other researches. So the surprising finding here is that even though right heart catheterization has been used in medical practice for decades with great accuracy in diagnosis of heart failure and measurement of cardiac output, (the founder of RHC was awared Nobel Prize in Medicine in 1956 $^{[2]}$),by using propensity score matching, we suggest that there should be some improvement done to better guarentee the saftey during RHC.
+
+### Weakness And Next Steps
+1. Not perfect balance in the matched data. Figure 2 shows the density plot of the matched dataset. We find that even curves for treatment and control groups are closer to each other after matching, there is still some kind of imbalance. Propensity score for the control group has smaller mean than the treatment group. Similarly as the unmatched data, there are still some bias when we perform group comparison. One of reasons for our imperfect matching may be due to the variable selection. More technical evidence is needed for the prediction of probability of selecting RHC. We select 50 variables here but that may be not enough. Indeed, we deleted the secondary disease category of patient because 79% of the data is not available but that probably is also an important factor for RHC selection. \newline 
+On the other hand, in the matching step, we match propensity score by the nearest neighbourhood approach, which may not be the best method to do. Alternatively, it is shown in some other articles that the caliper matching performs better $^{[6]}$. Also, weights can be put in propensity score to adjust the imbalance as well.$^{[3]}$ \newline
+
+2. Dataset is too old. Data we used to perform analysis is from 1989 to 1994, almost 30 years ago from 2020. During these 30 years, medical science has developed rapidly with the help of new concepts in technology. We may need to update the dataset to obtain newest information.\newline
+
+3. The model we build here to estimate death rate in 180 days is logistic regression, which is a rough model that provides us limited information. Indeed, since study admission date and last contact date of each sample are all available information from the dataset,it is also possible to perform survival analysis. For example, Cox proportional Hazard Model, developed by David Cox in 1972 may be applied to evaluate the effect of several factors on survival, not only death rate within 180 days, but also much more detailed values (like survival median) can be estimated with it. $^{[7]}$ Exploring other appropriate models to extract information will also be the next step of this study.\newline
+
+
+## References
+[1]*Dataset*:
+http://biostat.mc.vanderbilt.edu/twiki/bin/view/Main/DataSets \newline
+
+*Paper:*\newline
+[2] Kubiak, G. M., Ciarka, A., Biniecka, M., & Ceranowicz, P. (2019). Right Heart Catheterization-Background, Physiological Basics, and Clinical Implications. *Journal of clinical medicine*, 8(9), 1331. https://doi.org/10.3390/jcm8091331 \newline
+
+[3] Rosenbaum PR, Rubin DB (1983) The Central Role of the Propensity Score in Bbservational Studies for Causal Effects. *Biometrika*.70:41–55.\newline
+
+[4] Chen, H., You, D., & Jiu, L. (2017). Comparison and Application of Matching in Propensity Score Method and Mahalanobis Distance Method. *Chinese Journal of Health Statistics*.\newline
+
+[5] Connors, A. F., Jr, Speroff, T., Dawson, N. V., Thomas, C., Harrell, F. E., Jr, Wagner, D., Desbiens, N., Goldman, L., Wu, A. W., Califf, R. M., Fulkerson, W. J., Jr, Vidaillet, H., Broste, S., Bellamy, P., Lynn, J., & Knaus, W. A. (1996). The Effectiveness of Right Heart Catheterization in the Initial Care of Critically Ill Patients. SUPPORT Investigators. *JAMA*, 276(11), 889–897. https://doi.org/10.1001/jama.276.11.889 \newline
+
+[6] Huang, L., & Chen, F. (2019). The Propensity Score Method and Its Application. *Chinese Journal of Preventative Medicine*, 53(7).\newline
+
+[7] Brembilla, A., Olland, A., Puyraveau, M., Massard, G., Mauny, F., & Falcoz, P. E. (2018). Use of the Cox regression analysis in thoracic surgical research. *Journal of thoracic disease*, 10(6), 3891–3896. https://doi.org/10.21037/jtd.2018.06.15 \newline
+
+[8] Dehejia, R. H., &amp; Wahba, S. (2002). Propensity Score-Matching Methods for Nonexperimental Causal Studies. *Review of Economics and Statistics*, 84(1), 151-161. doi:10.1162/003465302317331982 \newline
+
+[9] Kassambara, A. (n.d.). Cox Model Assumptions. Retrieved December 20, 2020, from http://www.sthda.com/english/wiki/cox-model-assumptions \newline
+
+
+R Packages\newline
+[10]*knitr*:
+Yihui Xie (2020). knitr: A General-Purpose Package for Dynamic Report Generation inR. R package version 1.29.\newline
+  
+[11]*tidyverse*:
+Wickham et al., (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43), 1686, https://doi.org/10.21105/joss.01686 \newline
+  
+[12]*MatchIt*
+Greifer, N. (2020, December 15). Retrieved December 20, 2020, from https://cran.r-project.org/web/packages/MatchIt/vignettes/matching-methods.html \newline
+
+[13]*tableone*
+Yoshida, K. (2020, July 25). Introduction to tableone. Retrieved December 20, 2020, from https://cran.r-project.org/web/packages/tableone/vignettes/introduction.html \newline
+
+[14] *arm* 
+Andrew Gelman, Yu-Sung Su,Functions to accompany A. Gelman and J. Hill, Data Analysis Using Regres- sion and Multilevel/Hierarchical Models, Cambridge University Press, 2007.
+
+*Other*:
+[15] http://www.phsoregon.org/newsletters/ecardiovascular-beat/assets/downloads/Duke-Activity-Status-Index.pdf
+
+## Appendix
+
+All Code used to generate results can be found in the following link:\newline
+
+https://github.com/ranli123/Effectiveness-of-RHC.git
+
+```{r, echo = FALSE,warning=FALSE}
+## Print Full Table 1
+kbl(long_dt, longtable = T, booktabs = T, caption = "Descriptive Statistics and Group Comparison (Complete)") %>% add_header_above(c(" ", "Before Matching" = 4, "After Matching" = 4)) %>% kable_styling(latex_options = c("scale_down", "repeat_header"), font_size = 8)
+```
+
